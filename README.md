@@ -37,6 +37,7 @@ npm.cmd run check
 - 商店文案和审核说明：`store/LISTING.md`
 - 商店截图：`store/assets/screenshot-settings-1280x800.png`
 - 小型宣传图：`store/assets/promo-small-440x280.png`
+- 顶部宣传图：`store/assets/promo-marquee-1400x560.png`
 - 扩展 PNG 图标：`icons/`
 
 在 GitHub 仓库设置中启用 Pages，并选择从 `main` 分支的 `/docs` 目录部署后，

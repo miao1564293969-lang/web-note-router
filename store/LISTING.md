@@ -33,6 +33,13 @@ DeepSeek API，根据自定义路由标签判断分类，然后把文字、来�
 
 生产力工具
 
+## 图片素材
+
+- 商店图标：`icons/icon128.png`（128×128）
+- 功能截图：`store/assets/screenshot-settings-1280x800.png`（1280×800）
+- 小型宣传图块：`store/assets/promo-small-440x280.png`（440×280）
+- 顶部宣传图块：`store/assets/promo-marquee-1400x560.png`（1400×560）
+
 ## 单一用途说明
 
 在用户主动复制网页文字时，使用用户配置的 DeepSeek API 对内容进行分类，

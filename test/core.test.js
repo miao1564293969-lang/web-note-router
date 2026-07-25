@@ -71,7 +71,8 @@ test("商店图片尺寸符合 Chrome Web Store 要求", async () => {
   const cases = [
     ["icons/icon128.png", 128, 128],
     ["store/assets/screenshot-settings-1280x800.png", 1280, 800],
-    ["store/assets/promo-small-440x280.png", 440, 280]
+    ["store/assets/promo-small-440x280.png", 440, 280],
+    ["store/assets/promo-marquee-1400x560.png", 1400, 560]
   ];
   for (const [path, width, height] of cases) {
     const bytes = await readFile(new URL(path, root));
