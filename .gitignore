@@ -1,3 +1,4 @@
 .chrome-test/
+dist/
 node_modules/
 *.log

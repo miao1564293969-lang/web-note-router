@@ -72,7 +72,7 @@ async function routeWithDeepSeek(note, settings) {
 function notify(title, message) {
   chrome.notifications.create({
     type: "basic",
-    iconUrl: "icon.svg",
+    iconUrl: "icons/icon128.png",
     title,
     message
   }).catch(() => {});
