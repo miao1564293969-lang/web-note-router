@@ -55,3 +55,27 @@ test("复制事件包含路由处理中、成功和失败反馈", async () => {
   assert.match(contentScript, /保存失败/);
   assert.match(contentScript, /aria-live="polite"/);
 });
+
+test("Manifest 声明的商店图标存在且为 PNG", async () => {
+  const root = new URL("../", import.meta.url);
+  const manifest = JSON.parse(await readFile(new URL("manifest.json", root), "utf8"));
+  assert.equal(manifest.icons["128"], "icons/icon128.png");
+  for (const iconPath of Object.values(manifest.icons)) {
+    const bytes = await readFile(new URL(iconPath, root));
+    assert.equal(bytes.subarray(1, 4).toString(), "PNG");
+  }
+});
+
+test("商店图片尺寸符合 Chrome Web Store 要求", async () => {
+  const root = new URL("../", import.meta.url);
+  const cases = [
+    ["icons/icon128.png", 128, 128],
+    ["store/assets/screenshot-settings-1280x800.png", 1280, 800],
+    ["store/assets/promo-small-440x280.png", 440, 280]
+  ];
+  for (const [path, width, height] of cases) {
+    const bytes = await readFile(new URL(path, root));
+    assert.equal(bytes.readUInt32BE(16), width, `${path} 宽度`);
+    assert.equal(bytes.readUInt32BE(20), height, `${path} 高度`);
+  }
+});

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>网页笔记路由器隐私政策</title>
+  <style>
+    :root { font-family: Inter, "Microsoft YaHei", system-ui, sans-serif; color: #17211b; background: #f4f1e8; }
+    body { margin: 0; }
+    main { width: min(760px, calc(100% - 32px)); margin: 40px auto; padding: 32px; background: #fffdf7; border: 1px solid #d8d3c5; border-radius: 18px; }
+    h1, h2 { line-height: 1.25; }
+    h1 { color: #155e45; }
+    h2 { margin-top: 30px; }
+    p, li { line-height: 1.75; }
+    a { color: #155e45; }
+    @media (max-width: 768px) { main { margin: 12px auto; padding: 20px; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>网页笔记路由器隐私政策</h1>
+  <p>生效日期：2026 年 7 月 25 日</p>
+  <h2>1. 产品用途</h2>
+  <p>网页笔记路由器用于在用户主动复制网页文字时，通过用户配置的 DeepSeek API 判断笔记分类，并将内容写入用户明确授权的本地 Markdown 目录。</p>
+  <h2>2. 处理的数据</h2>
+  <p>只有在用户主动选择网页文字并执行复制操作时，扩展才会处理：</p>
+  <ul>
+    <li>用户选中并复制的网页文字；</li>
+    <li>当前网页标题和网址；</li>
+    <li>路由标签、目标文件及模型设置；</li>
+    <li>用户自行提供的 DeepSeek API Key；</li>
+    <li>最近一次笔记保存结果。</li>
+  </ul>
+  <p>扩展不会读取用户未主动复制的网页正文，不会收集密码或支付信息，也不会在后台持续记录浏览历史。</p>
+  <h2>3. 数据用途和共享</h2>
+  <p>复制文字、网页标题和网址会发送至用户配置的 DeepSeek API，唯一用途是生成笔记标题并选择路由标签。DeepSeek 对数据的处理受其自身隐私政策和服务条款约束。</p>
+  <p>开发者不会出售或出租用户数据，也不会将其用于广告、信用评估或其他无关用途。</p>
+  <h2>4. 本地存储</h2>
+  <p>API Key、模型和路由设置存储在用户本机的 Chrome 扩展存储中。原始笔记写入用户通过系统目录选择器授权的本地目录。开发者不运营用于接收或保存笔记的服务器。</p>
+  <h2>5. 权限说明</h2>
+  <ul>
+    <li><code>storage</code>：保存用户设置和最近一次保存结果；</li>
+    <li><code>notifications</code>：显示保存成功或失败通知；</li>
+    <li><code>api.deepseek.com</code>：向 DeepSeek 发送用户主动复制的内容完成分类；</li>
+    <li>网页内容脚本：监听用户主动复制并读取当次选中文字、标题和网址；</li>
+    <li>本地目录权限：仅访问用户主动选择和授权的目录。</li>
+  </ul>
+  <h2>6. 数据控制与删除</h2>
+  <p>用户可以暂停扩展、删除 API Key、修改路由、撤销目录权限，或卸载扩展以清除扩展本地设置。用户可自行删除生成的 Markdown 文件。</p>
+  <h2>7. 数据安全</h2>
+  <p>扩展使用 HTTPS 与 DeepSeek 通信。API Key 仅保存在本机扩展存储中，但能够访问该 Chrome 用户配置或本机账户的人可能读取这些数据。</p>
+  <h2>8. 儿童隐私</h2>
+  <p>本扩展不面向儿童，也不会有意收集儿童个人信息。</p>
+  <h2>9. 政策更新</h2>
+  <p>如果数据处理方式发生变化，本政策将同步更新生效日期和相关说明。</p>
+  <h2>10. 联系方式</h2>
+  <p>开发者：miao1564293969-lang<br>问题反馈：<a href="https://github.com/miao1564293969-lang/web-note-router/issues">GitHub Issues</a></p>
+</main>
+</body>
+</html>
