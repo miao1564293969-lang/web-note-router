@@ -1,0 +1,41 @@
+:root {
+  color-scheme: light;
+  --ink: #17211b;
+  --muted: #66736b;
+  --paper: #f4f1e8;
+  --card: #fffdf7;
+  --green: #155e45;
+  --line: #d8d3c5;
+  font-family: Inter, "Microsoft YaHei", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--paper); }
+.container { width: min(920px, calc(100% - 32px)); margin: 48px auto; }
+header { margin-bottom: 32px; }
+.eyebrow { color: var(--green); font-weight: 800; letter-spacing: .16em; }
+h1 { font-size: clamp(2rem, 5vw, 4rem); line-height: 1; margin: 8px 0 16px; }
+h2 { margin: 0 0 18px; }
+.card { padding: 24px; margin: 18px 0; border: 1px solid var(--line); border-radius: 18px; background: var(--card); box-shadow: 0 8px 30px #213d2c0c; }
+label { display: grid; gap: 8px; margin: 14px 0; font-weight: 700; }
+input, select, button { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+input, select { width: 100%; padding: 10px 12px; background: white; }
+button { padding: 9px 16px; cursor: pointer; background: #fff; font-weight: 750; }
+.primary { color: white; border-color: var(--green); background: var(--green); }
+.grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+.directory-row, .section-title, .actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.route { display: grid; grid-template-columns: 1fr 1.4fr 2fr auto; gap: 10px; margin: 10px 0; }
+.hint { color: var(--muted); font-size: .9rem; font-weight: 400; }
+.success { color: var(--green); }
+.warning, .error { color: #a33b20; }
+.toggle { display: flex; align-items: center; }
+.toggle input { width: 18px; min-height: 18px; }
+.popup { width: 340px; min-height: 220px; padding: 24px; background: var(--card); }
+.popup h1 { font-size: 1.5rem; }
+.popup button { width: 100%; margin-top: 18px; }
+@media (max-width: 768px) {
+  .container { width: min(100% - 24px, 920px); margin: 24px auto; }
+  .card { padding: 18px; }
+  .grid, .route { grid-template-columns: 1fr; }
+  .directory-row, .section-title, .actions { align-items: stretch; flex-direction: column; }
+  .actions .primary { width: 100%; }
+}

@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "网页笔记路由器",
+  "version": "1.0.0",
+  "description": "复制网页文字后，通过 DeepSeek 路由并追加到原始库 Markdown 文件。",
+  "permissions": [
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://api.deepseek.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "网页笔记路由器",
+    "default_popup": "popup.html"
+  }
+}

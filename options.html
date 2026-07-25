@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>网页笔记路由器设置</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <p class="eyebrow">WEB NOTE ROUTER</p>
+      <h1>网页笔记路由器</h1>
+      <p>复制即收集，DeepSeek 自动分流到你的 Markdown 原始库。</p>
+    </header>
+
+    <section class="card">
+      <h2>原始库</h2>
+      <div class="directory-row">
+        <button id="chooseDirectory" class="primary">选择原始库目录</button>
+        <span id="directoryStatus">尚未授权目录</span>
+      </div>
+      <p class="hint">浏览器安全策略要求你手动选择并授权目录，无法直接使用文本路径。</p>
+    </section>
+
+    <form id="settingsForm">
+      <section class="card">
+        <h2>DeepSeek</h2>
+        <label>DEEPSEEK_API_KEY
+          <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
+        </label>
+        <div class="grid">
+          <label>接口地址
+            <input id="apiBaseUrl" type="url" required>
+          </label>
+          <label>模型
+            <input id="model" required>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <div>
+            <h2>路由标签</h2>
+            <p class="hint">文件可包含子目录，例如“学习/AI.md”。</p>
+          </div>
+          <button id="addRoute" type="button">添加标签</button>
+        </div>
+        <div id="routes"></div>
+        <label>兜底标签
+          <select id="fallbackTag"></select>
+        </label>
+      </section>
+
+      <div class="actions">
+        <label class="toggle"><input id="enabled" type="checkbox"> 启用复制自动收集</label>
+        <button class="primary" type="submit">保存设置</button>
+      </div>
+      <p id="message" role="status"></p>
+    </form>
+  </main>
+  <template id="routeTemplate">
+    <div class="route">
+      <input data-field="tag" placeholder="标签，如：技术" required>
+      <input data-field="file" placeholder="Markdown 文件，如：技术笔记.md" required>
+      <input data-field="description" placeholder="分类说明">
+      <button type="button" data-action="remove" aria-label="删除标签">删除</button>
+    </div>
+  </template>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
