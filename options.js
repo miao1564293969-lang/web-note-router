@@ -21,7 +21,6 @@ function renderSettings(settings) {
   document.querySelector("#enabled").checked = settings.enabled;
   routesElement.replaceChildren();
   settings.routes.forEach(addRouteRow);
-  refreshFallback(settings.fallbackTag);
 }
 
 function addRouteRow(route = { tag: "", file: "", description: "" }) {
@@ -32,9 +31,7 @@ function addRouteRow(route = { tag: "", file: "", description: "" }) {
   }
   row.querySelector('[data-action="remove"]').addEventListener("click", () => {
     row.remove();
-    refreshFallback();
   });
-  row.querySelector('[data-field="tag"]').addEventListener("input", () => refreshFallback());
   routesElement.append(row);
 }
 
@@ -44,13 +41,6 @@ function getRoutes() {
     file: row.querySelector('[data-field="file"]').value,
     description: row.querySelector('[data-field="description"]').value
   })).filter(Boolean);
-}
-
-function refreshFallback(selected = document.querySelector("#fallbackTag").value) {
-  const select = document.querySelector("#fallbackTag");
-  const tags = [...routesElement.querySelectorAll('[data-field="tag"]')]
-    .map((input) => input.value.trim()).filter(Boolean);
-  select.replaceChildren(...tags.map((tag) => new Option(tag, tag, false, tag === selected)));
 }
 
 document.querySelector("#addRoute").addEventListener("click", () => addRouteRow());
@@ -83,8 +73,7 @@ form.addEventListener("submit", async (event) => {
     apiBaseUrl: document.querySelector("#apiBaseUrl").value.trim(),
     model: document.querySelector("#model").value.trim(),
     enabled: document.querySelector("#enabled").checked,
-    routes,
-    fallbackTag: document.querySelector("#fallbackTag").value
+    routes
   });
   await chrome.storage.local.set({ settings });
   showMessage("设置已保存");

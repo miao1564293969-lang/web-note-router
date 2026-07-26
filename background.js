@@ -1,5 +1,5 @@
-import { DEFAULT_SETTINGS, buildRoutePrompt, formatMarkdownNote, normalizeSettings, parseRouteResponse } from "./lib/core.js";
-import { appendToMarkdown, ensureWritePermission, getDirectoryHandle } from "./lib/directory-store.js";
+import { DEFAULT_SETTINGS, buildRoutePrompt, containsSecret, formatMarkdownNote, normalizeSettings, parseRouteResponse } from "./lib/core.js";
+import { appendToMarkdown, ensureWritePermission, getDirectoryHandle, writeBinaryFile } from "./lib/directory-store.js";
 
 let writeQueue = Promise.resolve();
 
@@ -10,7 +10,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "CAPTURE_NOTE") return false;
-  writeQueue = writeQueue.then(() => captureNote(message.payload));
+  writeQueue = writeQueue.catch(() => {}).then(() => captureNote(message.payload));
   writeQueue.then(
     (result) => sendResponse({ ok: true, ...result }),
     (error) => {
@@ -24,19 +24,38 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 async function captureNote(note) {
   const { settings: raw } = await chrome.storage.local.get("settings");
   const settings = normalizeSettings(raw);
+  if (raw && Object.hasOwn(raw, "fallbackTag")) {
+    await chrome.storage.local.set({ settings });
+  }
   if (!settings.enabled) throw new Error("插件当前已暂停");
-  if (!settings.apiKey) throw new Error("请先在设置页填写 DEEPSEEK_API_KEY");
-  if (!note?.text?.trim()) throw new Error("复制内容为空");
+  const hasText = Boolean(note?.text?.trim());
+  const hasImages = Boolean(note?.images?.length || note?.remoteImages?.length);
+  const hasSecret = hasText && containsSecret(note.text);
+  if (!hasText && !hasImages) throw new Error("复制内容为空");
+  if (hasText && !hasSecret && !settings.apiKey) throw new Error("请先在设置页填写 DEEPSEEK_API_KEY");
 
   const rootHandle = await getDirectoryHandle();
   if (!rootHandle || !await ensureWritePermission(rootHandle)) {
     throw new Error("原始库目录未授权，请打开设置页重新选择目录");
   }
 
-  const routeResult = await routeWithDeepSeek(note, settings);
-  const route = settings.routes.find((item) => item.tag === routeResult.tag)
-    || settings.routes.find((item) => item.tag === settings.fallbackTag);
-  await appendToMarkdown(rootHandle, route.file, formatMarkdownNote(note, routeResult));
+  const routeResult = hasSecret
+    ? createSecretRoute(settings.routes)
+    : hasText
+      ? await routeWithDeepSeek(note, settings)
+      : createImageRoute(settings.routes);
+  if (routeResult.isNew) {
+    settings.routes = [...settings.routes, {
+      tag: routeResult.tag,
+      file: routeResult.file,
+      description: routeResult.description
+    }];
+    await chrome.storage.local.set({ settings });
+  }
+  const route = settings.routes.find((item) => item.tag === routeResult.tag);
+  const localImages = await saveClipboardImages(rootHandle, note.images || []);
+  const imagePaths = [...localImages, ...(note.remoteImages || [])];
+  await appendToMarkdown(rootHandle, route.file, formatMarkdownNote({ ...note, imagePaths }, routeResult));
   await chrome.storage.local.set({
     lastResult: { ...routeResult, file: route.file, savedAt: new Date().toISOString() }
   });
@@ -44,29 +63,93 @@ async function captureNote(note) {
   return { ...routeResult, file: route.file };
 }
 
+function createSecretRoute(routes) {
+  const existing = routes.find((route) => route.tag === "密钥" || route.file === "密钥.md");
+  return existing
+    ? { ...existing, title: "密钥记录", isNew: false }
+    : {
+        tag: "密钥",
+        file: "密钥.md",
+        description: "本地正则识别的密钥、令牌、密码和私钥，不发送给大模型",
+        title: "密钥记录",
+        isNew: true
+      };
+}
+
+async function saveClipboardImages(rootHandle, images) {
+  const paths = [];
+  for (const image of images.slice(0, 5)) {
+    const extension = extensionForMimeType(image.mimeType);
+    const path = `attachments/web-note-router/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    await writeBinaryFile(rootHandle, path, decodeBase64(image.data));
+    paths.push(path);
+  }
+  return paths;
+}
+
+function extensionForMimeType(mimeType) {
+  return {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif"
+  }[mimeType] || "png";
+}
+
+function decodeBase64(value) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
 async function routeWithDeepSeek(note, settings) {
-  const response = await fetch(settings.apiBaseUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${settings.apiKey}`
-    },
-    body: JSON.stringify({
-      model: settings.model,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: buildRoutePrompt(settings.routes, settings.fallbackTag) },
-        { role: "user", content: `网页标题：${note.pageTitle}\n网页地址：${note.url}\n复制内容：\n${note.text}` }
-      ]
-    })
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  let response;
+  try {
+    response = await fetch(settings.apiBaseUrl, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${settings.apiKey}`
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: buildRoutePrompt(settings.routes) },
+          { role: "user", content: `网页标题：${note.pageTitle}\n网页地址：${note.url}\n复制内容：\n${note.text}` }
+        ]
+      })
+    });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("DeepSeek 请求超时（30 秒），请检查网络、接口地址或模型名称");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`DeepSeek 请求失败（${response.status}）：${body.slice(0, 200)}`);
   }
   const data = await response.json();
-  return parseRouteResponse(data.choices?.[0]?.message?.content, settings.routes, settings.fallbackTag);
+  return parseRouteResponse(data.choices?.[0]?.message?.content, settings.routes);
+}
+
+function createImageRoute(routes) {
+  const existing = routes.find((route) => route.tag === "图片摘录");
+  return existing
+    ? { ...existing, title: "图片摘录", isNew: false }
+    : {
+        tag: "图片摘录",
+        file: "图片摘录.md",
+        description: "没有可用于文字路由的纯图片内容",
+        title: "图片摘录",
+        isNew: true
+      };
 }
 
 function notify(title, message) {
