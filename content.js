@@ -1,24 +1,116 @@
 document.addEventListener("copy", () => {
-  const text = window.getSelection()?.toString().trim();
-  if (!text) return;
-  showRouteToast("正在分析笔记路由…", "loading");
-  chrome.runtime.sendMessage({
-    type: "CAPTURE_NOTE",
-    payload: {
-      text,
-      url: location.href,
-      pageTitle: document.title
+  const selectedText = window.getSelection()?.toString().trim() || "";
+  setTimeout(() => captureClipboardNote(selectedText), 0);
+}, true);
+
+async function captureClipboardNote(selectedText) {
+  try {
+    let clipboard;
+    try {
+      clipboard = await withTimeout(readClipboardContent(), 5000, "读取剪贴板超时");
+    } catch (error) {
+      if (!selectedText) throw error;
+      clipboard = { text: selectedText, images: [], remoteImages: [] };
     }
-  }).then((result) => {
+    const text = clipboard.text.trim() || selectedText;
+    if (!text && !clipboard.images.length && !clipboard.remoteImages.length) return;
+
+    showRouteToast(text ? "正在本地检查并分析笔记路由…" : "正在保存图片笔记…", "loading");
+    const result = await withTimeout(sendToExtension({
+      type: "CAPTURE_NOTE",
+      payload: {
+        text,
+        images: clipboard.images,
+        remoteImages: clipboard.remoteImages,
+        url: location.href,
+        pageTitle: document.title
+      }
+    }), 45000, "笔记路由超时，请检查网络或 DeepSeek 配置");
     if (result?.ok) {
       showRouteToast(`已路由到：${result.file}`, "success", result.tag);
       return;
     }
     showRouteToast(`保存失败：${result?.error || "未知错误"}`, "error");
-  }).catch((error) => {
-    showRouteToast(`保存失败：${error.message || "扩展通信异常"}`, "error");
+  } catch (error) {
+    showRouteToast(`保存失败：${friendlyErrorMessage(error)}`, "error");
+  }
+}
+
+async function sendToExtension(message) {
+  const runtime = globalThis.chrome?.runtime;
+  if (!runtime?.sendMessage) {
+    throw new Error("扩展连接已失效，请刷新当前网页后重试");
+  }
+  try {
+    return await runtime.sendMessage(message);
+  } catch (error) {
+    if (isInvalidatedContext(error)) {
+      throw new Error("扩展连接已失效，请刷新当前网页后重试");
+    }
+    throw error;
+  }
+}
+
+function friendlyErrorMessage(error) {
+  if (isInvalidatedContext(error)) return "扩展连接已失效，请刷新当前网页后重试";
+  return error?.message || "扩展通信异常";
+}
+
+function isInvalidatedContext(error) {
+  return /extension context invalidated|receiving end does not exist/i.test(error?.message || "");
+}
+
+async function readClipboardContent() {
+  const result = { text: "", images: [], remoteImages: [] };
+  if (!navigator.clipboard?.read) return result;
+
+  const items = await navigator.clipboard.read();
+  let totalImageBytes = 0;
+  for (const item of items) {
+    if (item.types.includes("text/plain") && !result.text) {
+      result.text = await (await item.getType("text/plain")).text();
+    }
+    if (item.types.includes("text/html")) {
+      const html = await (await item.getType("text/html")).text();
+      result.remoteImages.push(...extractRemoteImages(html));
+    }
+    for (const type of item.types.filter((value) => value.startsWith("image/"))) {
+      const blob = await item.getType(type);
+      totalImageBytes += blob.size;
+      if (blob.size > 10 * 1024 * 1024 || totalImageBytes > 20 * 1024 * 1024) {
+        throw new Error("复制图片过大，单张不能超过 10MB，总计不能超过 20MB");
+      }
+      result.images.push({ mimeType: blob.type || type, data: await blobToBase64(blob) });
+    }
+  }
+  result.remoteImages = [...new Set(result.remoteImages)].slice(0, 10);
+  return result;
+}
+
+function extractRemoteImages(html) {
+  if (!html) return [];
+  const document = new DOMParser().parseFromString(html, "text/html");
+  return [...document.querySelectorAll("img")]
+    .map((image) => image.currentSrc || image.src)
+    .filter((src) => /^https?:\/\//i.test(src));
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
   });
-}, true);
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 let toastTimer;
 
