@@ -82,6 +82,12 @@ test("普通短文本不会被误判为密钥", () => {
   assert.equal(containsSecret("pwd: short"), false);
 });
 
+test("密钥正则仅检查复制内容前 100 个字符", () => {
+  const secret = "api_key=1234567890abcdef";
+  assert.equal(containsSecret(`${"a".repeat(70)} ${secret}`), true);
+  assert.equal(containsSecret(`${"a".repeat(100)}${secret}`), false);
+});
+
 test("生成带来源、标签与时间的 Markdown", () => {
   const markdown = formatMarkdownNote(
     { text: "第一行\n第二行", url: "https://example.com", pageTitle: "示例" },
