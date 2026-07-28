@@ -1,4 +1,13 @@
-import { DEFAULT_SETTINGS, buildRoutePrompt, containsSecret, formatMarkdownNote, normalizeSettings, parseRouteResponse } from "./lib/core.js";
+import {
+  DEFAULT_SETTINGS,
+  RecentHashCache,
+  buildRoutePrompt,
+  computeContentHash,
+  containsSecret,
+  formatMarkdownNote,
+  normalizeSettings,
+  parseRouteResponse
+} from "./lib/core.js";
 import { appendToMarkdown, ensureWritePermission, getDirectoryHandle, writeBinaryFile } from "./lib/directory-store.js";
 
 let writeQueue = Promise.resolve();
@@ -22,16 +31,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function captureNote(note) {
+  const hasText = Boolean(note?.text?.trim());
+  const hasImages = Boolean(note?.images?.length || note?.remoteImages?.length);
+  if (!hasText && !hasImages) throw new Error("复制内容为空");
+
+  const contentHash = await computeContentHash(note);
+  const recentRecords = await loadRecentRecords();
+  if (recentRecords.has(contentHash)) {
+    return { duplicate: true, hash: contentHash };
+  }
+
   const { settings: raw } = await chrome.storage.local.get("settings");
   const settings = normalizeSettings(raw);
   if (raw && Object.hasOwn(raw, "fallbackTag")) {
     await chrome.storage.local.set({ settings });
   }
   if (!settings.enabled) throw new Error("插件当前已暂停");
-  const hasText = Boolean(note?.text?.trim());
-  const hasImages = Boolean(note?.images?.length || note?.remoteImages?.length);
   const hasSecret = hasText && containsSecret(note.text);
-  if (!hasText && !hasImages) throw new Error("复制内容为空");
   if (hasText && !hasSecret && !settings.apiKey) throw new Error("请先在设置页填写 DEEPSEEK_API_KEY");
 
   const rootHandle = await getDirectoryHandle();
@@ -56,11 +72,24 @@ async function captureNote(note) {
   const localImages = await saveClipboardImages(rootHandle, note.images || []);
   const imagePaths = [...localImages, ...(note.remoteImages || [])];
   await appendToMarkdown(rootHandle, route.file, formatMarkdownNote({ ...note, imagePaths }, routeResult));
+  recentRecords.add({
+    hash: contentHash,
+    savedAt: new Date().toISOString(),
+    file: route.file
+  });
+  await chrome.storage.session.set({ recentRecords: recentRecords.entries() });
   await chrome.storage.local.set({
-    lastResult: { ...routeResult, file: route.file, savedAt: new Date().toISOString() }
+    lastResult: { ...routeResult, file: route.file, hash: contentHash, savedAt: new Date().toISOString() }
   });
   notify("网页笔记已保存", `${routeResult.tag} → ${route.file}`);
-  return { ...routeResult, file: route.file };
+  return { ...routeResult, file: route.file, hash: contentHash };
+}
+
+async function loadRecentRecords() {
+  const { recentRecords: stored = [] } = await chrome.storage.session.get("recentRecords");
+  const cache = new RecentHashCache(10);
+  for (const record of stored) cache.add(record);
+  return cache;
 }
 
 function createSecretRoute(routes) {

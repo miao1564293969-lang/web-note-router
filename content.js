@@ -26,6 +26,10 @@ async function captureClipboardNote(selectedText) {
         pageTitle: document.title
       }
     }), 45000, "笔记路由超时，请检查网络或 DeepSeek 配置");
+    if (result?.duplicate) {
+      showRouteToast("重复粘贴：最近 10 条记录中已存在", "warning");
+      return;
+    }
     if (result?.ok) {
       showRouteToast(`已路由到：${result.file}`, "success", result.tag);
       return;
@@ -141,6 +145,7 @@ function showRouteToast(message, state, tag = "") {
         .toast.success { border-left: 5px solid #155e45; }
         .toast.error { border-left: 5px solid #a33b20; }
         .toast.loading { border-left: 5px solid #b48624; }
+        .toast.warning { border-left: 5px solid #b48624; }
         .tag { display: block; margin-top: 3px; color: #66736b; font-size: 12px; }
       </style>
       <div class="toast" role="status" aria-live="polite">

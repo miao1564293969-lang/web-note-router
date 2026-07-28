@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   buildRoutePrompt,
+  computeContentHash,
   containsSecret,
   formatMarkdownNote,
   normalizeSettings,
   parseRouteResponse,
+  RecentHashCache,
   sanitizeRelativeMarkdownPath
 } from "../lib/core.js";
 
@@ -88,6 +90,35 @@ test("密钥正则仅检查复制内容前 100 个字符", () => {
   assert.equal(containsSecret(`${"a".repeat(100)}${secret}`), false);
 });
 
+test("相同剪贴板内容生成相同 SHA-256 且忽略网页来源", async () => {
+  const first = await computeContentHash({
+    text: "重复内容",
+    images: [{ mimeType: "image/png", data: "aGVsbG8=" }],
+    remoteImages: ["https://example.com/a.png"],
+    url: "https://first.example"
+  });
+  const second = await computeContentHash({
+    text: "重复内容",
+    images: [{ mimeType: "image/png", data: "aGVsbG8=" }],
+    remoteImages: ["https://example.com/a.png"],
+    url: "https://second.example"
+  });
+  assert.equal(first, second);
+  assert.match(first, /^[a-f0-9]{64}$/);
+  assert.notEqual(first, await computeContentHash({ text: "不同内容" }));
+});
+
+test("最近哈希缓存仅保留最新 10 条记录", () => {
+  const cache = new RecentHashCache(10);
+  for (let index = 0; index < 11; index += 1) {
+    cache.add({ hash: `hash-${index}`, savedAt: String(index), file: "记录.md" });
+  }
+  assert.equal(cache.entries().length, 10);
+  assert.equal(cache.has("hash-0"), false);
+  assert.equal(cache.has("hash-1"), true);
+  assert.equal(cache.has("hash-10"), true);
+});
+
 test("生成带来源、标签与时间的 Markdown", () => {
   const markdown = formatMarkdownNote(
     { text: "第一行\n第二行", url: "https://example.com", pageTitle: "示例" },
@@ -119,6 +150,7 @@ test("复制事件包含路由处理中、成功和失败反馈", async () => {
   const contentScript = await readFile(new URL("../content.js", import.meta.url), "utf8");
   assert.match(contentScript, /正在本地检查并分析笔记路由/);
   assert.match(contentScript, /正在保存图片笔记/);
+  assert.match(contentScript, /重复粘贴：最近 10 条记录中已存在/);
   assert.match(contentScript, /已路由到：\$\{result\.file\}/);
   assert.match(contentScript, /保存失败/);
   assert.match(contentScript, /读取剪贴板超时/);
@@ -137,6 +169,9 @@ test("后台路由包含请求超时和失败队列恢复", async () => {
   assert.match(background, /writeQueue\.catch\(\(\) => \{\}\)\.then/);
   assert.match(background, /hasSecret\s*\?\s*createSecretRoute/);
   assert.match(background, /file: "密钥\.md"/);
+  assert.ok(background.indexOf("recentRecords.has") < background.indexOf("containsSecret(note.text)"));
+  assert.match(background, /chrome\.storage\.session\.get/);
+  assert.match(background, /chrome\.storage\.session\.set/);
 });
 
 test("Manifest 声明的商店图标存在且为 PNG", async () => {
